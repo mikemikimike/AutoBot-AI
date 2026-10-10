@@ -23,10 +23,8 @@ from pathlib import Path
 # ``utilities.optimize_agents`` (a PEP 420 namespace package portion) resolves
 # (#14518). The previous ``shared/`` insert made the import read
 # ``scripts.utilities.optimize_agents``, a path that does not exist from that
-# root. The module is addressed through ``utilities.`` rather than imported
-# bare because ``scripts/optimize_agents_test.py`` binds the *sibling*
-# ``scripts/optimize_agents.py`` to ``sys.modules["optimize_agents"]``; a bare
-# name would collide with it inside a shared pytest process.
+# root. The bare name ``optimize_agents`` now resolves to this module alone: the
+# sibling tool that shared it was renamed ``collapse_agent_policy`` (#14873, #15580).
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
 if str(_SCRIPTS_ROOT) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_ROOT))

@@ -14,7 +14,7 @@ are ACCEPTABLE EXCEPTIONS per Issue #490 - template generators with low cyclomat
 before #14517, so every run raised ``FileNotFoundError`` on ``open`` -- the
 generator has never once produced a component. Once it became reachable, it
 still wrote in place with no preview and no opt-out -- the same "was inert,
-now writes" shape #14546 named for ``optimize_agents.py``. Following that
+now writes" shape #14546 named for ``collapse_agent_policy.py``. Following that
 precedent: dry run is the default, the tool prints what it would write, and
 ``--apply`` is required to write it.
 """

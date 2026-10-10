@@ -12,7 +12,7 @@ project root and, before #14517 fixed its project-root resolution, could never
 reach that target (the ``open()`` call always raised ``FileNotFoundError``).
 Once it became reachable, it still wrote in place with no preview and no
 opt-out -- the same "was inert, now writes" shape #14546 named for
-``optimize_agents.py``. Following that precedent: dry run is the default, the
+``collapse_agent_policy.py``. Following that precedent: dry run is the default, the
 tool prints what it would write, and ``--apply`` is required to write it.
 """
 

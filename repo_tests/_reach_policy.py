@@ -187,6 +187,11 @@ ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
         "SUBSET_DRIFTS",
         "One frontend tree's source, against all tracked `.vue`/`.ts`/`.js` including the other frontend.",
     ),
+    "script-module-name-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Tracked .py under one scripts root, a subset of all tracked files; the count drifts as scripts are added.",
+    ),
     "post-commit-seed-scan": (
         ABSOLUTE,
         "SUBSET_DRIFTS",
