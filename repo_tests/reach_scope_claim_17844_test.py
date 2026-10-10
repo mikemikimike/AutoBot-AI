@@ -162,6 +162,12 @@ def test_a_declared_scope_that_the_sweep_does_not_reach_is_refused() -> None:
 #: Compared as a SET in both directions. Adding a scoped declaration means adding a line here,
 #: and that is the point -- the scope is a decision, so it is written twice on purpose.
 _DECLARED_SCOPES = {
+    "architecture-family-definition-scan": (
+        "autobot-backend",
+        "autobot-npu-worker",
+        "autobot-slm-backend",
+        "autobot_shared",
+    ),
     "optimization-taxonomy-scan": ("autobot-backend/llm_shared/optimization",),
     "post-commit-seed-scan": ("autobot-backend", "autobot-slm-backend", "autobot_shared"),
     "fact-read-authorization-scan": ("autobot-backend", "autobot-slm-backend", "autobot_shared"),
