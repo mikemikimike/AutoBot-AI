@@ -187,6 +187,11 @@ ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
         "SUBSET_DRIFTS",
         "One frontend tree's source, against all tracked `.vue`/`.ts`/`.js` including the other frontend.",
     ),
+    "conftest-stubset-primitives": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "conftest.py files are a proper subset of tracked files under the pytest roots; no reference co-moves.",
+    ),
     "post-commit-seed-scan": (
         ABSOLUTE,
         "SUBSET_DRIFTS",
