@@ -47,6 +47,7 @@ class TestAgentOptimizer(unittest.TestCase):
         self.optimizer = AgentOptimizer(
             agent_dir=self.agent_dir,
             cache_file=self.cache_file,
+            apply_changes=True,
             strip_code_blocks=True,
             strip_verbose_sections=False,
         )
@@ -395,6 +396,47 @@ End."""
         self.assertGreater(stats["total_savings_percent"], 10)
 
 
+class TestDryRunDefault(unittest.TestCase):
+    """The tool writes only when told to (#15580, following #14546)."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.agent_dir = Path(self.temp_dir.name) / "agents"
+        self.agent_dir.mkdir()
+        self.cache_file = Path(self.temp_dir.name) / ".cache.json"
+        self.agent = self.agent_dir / "a.md"
+        self.original = "---\nname: a\n---\n\nText\n\n```python\nx = 1\n```\n"
+        self.agent.write_text(self.original, encoding="utf-8")
+        self.agent.chmod(0o640)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def test_default_is_a_dry_run_that_writes_nothing(self):
+        opt = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file)
+        stats = opt.optimize_all()
+        self.assertEqual(stats["files_would_update"], 1)
+        self.assertEqual(stats["files_updated"], 0)
+        self.assertEqual(self.agent.read_text(encoding="utf-8"), self.original)
+        self.assertFalse(self.cache_file.exists(), "a dry run must not record files as processed")
+
+    def test_apply_writes_and_preserves_mode(self):
+        opt = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file, apply_changes=True)
+        stats = opt.optimize_all()
+        self.assertEqual(stats["files_updated"], 1)
+        self.assertNotEqual(self.agent.read_text(encoding="utf-8"), self.original)
+        self.assertEqual(self.agent.stat().st_mode & 0o777, 0o640)
+
+    def test_dry_run_then_apply_still_writes(self):
+        AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file).optimize_all()
+        opt = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file, apply_changes=True)
+        self.assertEqual(opt.optimize_all()["files_updated"], 1)
+
+    def test_shell_wrapper_passes_apply(self):
+        script = Path(__file__).with_name("agent-optimize.sh").read_text(encoding="utf-8")
+        self.assertIn('"$OPTIMIZER_SCRIPT" --apply $force_flag', script)
+
+
 class TestAgentOptimizerEdgeCases(unittest.TestCase):
     """Test edge cases and error handling."""
 
@@ -411,7 +453,7 @@ class TestAgentOptimizerEdgeCases(unittest.TestCase):
 
     def test_nested_code_blocks(self):
         """Test handling of nested code blocks (edge case)."""
-        optimizer = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file)
+        optimizer = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file, apply_changes=True)
 
         content = """Example:
 
@@ -430,7 +472,7 @@ end markdown
 
     def test_empty_code_blocks(self):
         """Test handling of empty code blocks."""
-        optimizer = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file)
+        optimizer = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file, apply_changes=True)
 
         # Empty code blocks need at least one newline to match pattern
         content = """Example:
@@ -448,7 +490,7 @@ End."""
 
     def test_malformed_agent_file(self):
         """Test handling of malformed agent files."""
-        optimizer = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file)
+        optimizer = AgentOptimizer(agent_dir=self.agent_dir, cache_file=self.cache_file, apply_changes=True)
 
         # Create malformed file (missing closing frontmatter)
         test_file = self.agent_dir / "malformed.md"

@@ -13,6 +13,8 @@ test goes red, so the guard itself is proven to catch the regression it names.
 
 import importlib.util
 import pathlib
+
+from autobot_shared import atomic_write
 import sys
 
 import pytest
@@ -135,7 +137,7 @@ def test_atomic_write_leaves_no_partial_file_on_failure(agent_dir: pathlib.Path,
     def _boom(*_args, **_kwargs):
         raise OSError("simulated crash mid-write")
 
-    monkeypatch.setattr(collapse_agent_policy.os, "replace", _boom)
+    monkeypatch.setattr(atomic_write.os, "replace", _boom)
 
     with pytest.raises(OSError):
         collapse_agent_policy.write_atomically(target, "corrupted content")

@@ -2,7 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # AutoBot - AI-Powered Automation Platform
 # Author: mrveiss
-"""No two tracked scripts share one import name (#14873, #15580).
+"""No two tracked scripts share one filename (#14873, #15580).
+
+Scope is the whole `scripts/` tree, which includes the two roots #15580 names (`scripts/` and
+`scripts/utilities/`), for every script suffix, not only `.py`.
 
 `shared/scripts` is a flat sys.path root: its tests load siblings by bare name, so two files
 called `optimize_agents.py` bound one `sys.modules` slot and the loser's tests ran against the
@@ -26,28 +29,31 @@ _ROOT = "autobot-infrastructure/shared/scripts"
 #: Basenames that are legitimately repeated (package markers, pytest plumbing).
 _EXEMPT_NAMES = frozenset({"__init__.py", "conftest.py"})
 
+#: Script suffixes whose basename is the name an operator types or a test imports.
+_SCRIPT_SUFFIXES = (".py", ".sh", ".bash", ".js")
+
 #: Known forks not yet resolved. May only shrink; each needs its own de-fork.
 _GRANDFATHERED = {
-    "fresh_kb_setup.py": (
-        f"{_ROOT}/fresh_kb_setup.py",
-        f"{_ROOT}/setup/knowledge/fresh_kb_setup.py",
+    "sync-all-vms.sh": (
+        f"{_ROOT}/sync-all-vms.sh",
+        f"{_ROOT}/utilities/sync-all-vms.sh",
     ),
 }
 
 
-def _python_modules(root) -> list[str]:
+def _script_files(root) -> list[str]:
     try:
-        return [p for p in tracked_paths(root, _ROOT) if p.endswith(".py")]
+        return [p for p in tracked_paths(root, _ROOT) if p.endswith(_SCRIPT_SUFFIXES)]
     except EmptyEnumeration:
         return []
 
 
 REACH = declare(
     "script-module-name-scan",
-    discover=_python_modules,
+    discover=_script_files,
     # Mid-window, from REACH.window().
-    floor=181,
-    what="tracked python scripts",
+    floor=287,
+    what="tracked scripts (py, sh, bash, js)",
     roots=(_ROOT,),
     growth=100,
 )
@@ -68,6 +74,7 @@ def shared_names(paths: list[str]) -> dict[str, tuple[str, ...]]:
     [
         (["a/optimize_agents.py", "a/utilities/optimize_agents.py"], {"optimize_agents.py"}),
         (["a/collapse_agent_policy.py", "a/utilities/optimize_agents.py"], set()),
+        (["a/sync.sh", "a/utilities/sync.sh"], {"sync.sh"}),
         (["a/__init__.py", "a/b/__init__.py", "a/conftest.py", "a/b/conftest.py"], set()),
     ],
 )

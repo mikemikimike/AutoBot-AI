@@ -104,7 +104,7 @@ run_optimization() {
 
     # Run Python optimizer
     cd "$PROJECT_ROOT"
-    python3 "$OPTIMIZER_SCRIPT" $force_flag $stats_flag
+    python3 "$OPTIMIZER_SCRIPT" --apply $force_flag $stats_flag
 
     print_success "Optimization complete!"
     print_info "Agents optimized in: $AGENT_DIR"

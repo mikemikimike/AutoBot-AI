@@ -16,9 +16,11 @@ Git-Based Backup Design:
 - No duplicate directories needed
 
 Usage:
-    python scripts/utilities/optimize_agents.py [--force] [--stats] [--restore [TAG]]
+    python scripts/utilities/optimize_agents.py [--apply] [--force] [--stats] [--restore [TAG]]
 
 Options:
+    --apply         Write the changes (backup tag + commit). Without it, a dry run:
+                    report what would change and write nothing (#15580, as #14546)
     --force         Force regeneration of all optimized agents
     --stats         Show detailed token savings statistics
     --restore       Restore agents from most recent backup tag
@@ -44,6 +46,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from autobot_shared.atomic_write import write_atomically
 from autobot_shared.paths import scrubbed_git_env  # noqa: E402 - follows the sys.path setup above
 
 # Setup logging
@@ -72,6 +75,7 @@ class AgentOptimizer:
         cache_file: Optional[Path] = None,
         strip_code_blocks: bool = True,
         strip_verbose_sections: bool = False,
+        apply_changes: bool = False,
     ):
         """
         Initialize the optimizer.
@@ -81,17 +85,20 @@ class AgentOptimizer:
             cache_file: Path to cache file for tracking modifications
             strip_code_blocks: Whether to strip code blocks (default: True)
             strip_verbose_sections: Whether to strip verbose sections (default: False)
+            apply_changes: Write files and the cache; False (default) is a dry run (#15580)
         """
         self.agent_dir = Path(agent_dir)
         self.cache_file = cache_file or (self.agent_dir / ".optimization_cache.json")
         self.strip_code_blocks = strip_code_blocks
         self.strip_verbose_sections = strip_verbose_sections
+        self.apply_changes = apply_changes
 
         # Statistics tracking
         self.stats = {
             "files_processed": 0,
             "files_skipped": 0,
             "files_updated": 0,
+            "files_would_update": 0,
             "total_original_size": 0,
             "total_optimized_size": 0,
             "code_blocks_removed": 0,
@@ -270,9 +277,13 @@ class AgentOptimizer:
                 f"({savings_percent:.1f}% reduction, {blocks_removed} code blocks removed)"
             )
 
-            # Write optimized content back to same file
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(optimized_content)
+            if not self.apply_changes:
+                logger.info("Dry run: would rewrite %s (pass --apply to write)", file_path.name)
+                self.stats["files_would_update"] += 1
+                return True
+
+            # Atomic replace, preserving the file mode (#14546 convention)
+            write_atomically(file_path, optimized_content)
 
             # Update cache
             self._update_cache(file_path)
@@ -315,8 +326,9 @@ class AgentOptimizer:
             # Optimize the file
             self.optimize_agent_file(agent_file)
 
-        # Save cache
-        self._save_cache()
+        # A dry run must not record files as processed, or a later --apply would skip them
+        if self.apply_changes:
+            self._save_cache()
 
         # Calculate final statistics
         if self.stats["total_original_size"] > 0:
@@ -541,6 +553,36 @@ def list_backup_tags() -> None:
         logger.error("Failed to list tags: %s", e)
 
 
+def _run_dry(agent_dir: Path, args) -> None:
+    """Report what would change; no backup tag, no write, no cache, no commit."""
+    logger.info("DRY RUN: nothing will be written (pass --apply to write)")
+    optimizer = AgentOptimizer(agent_dir=agent_dir, strip_verbose_sections=args.strip_verbose)
+    stats = optimizer.optimize_all(force=args.force)
+    logger.info("Would rewrite %s file(s)", stats["files_would_update"])
+
+
+def _run_apply(agent_dir: Path, args) -> None:
+    """Back up with a git tag, rewrite atomically, then commit the result."""
+    logger.info("Optimization mode: IN-PLACE (files will be modified directly)")
+    backup_tag = create_backup_tag()
+    logger.info("Backup tag created: %s", backup_tag)
+    optimizer = AgentOptimizer(
+        agent_dir=agent_dir,
+        strip_code_blocks=True,
+        strip_verbose_sections=args.strip_verbose,
+        apply_changes=True,
+    )
+    stats = optimizer.optimize_all(force=args.force)
+    if args.stats or stats["files_updated"] > 0:
+        optimizer.print_statistics()
+    if stats["files_updated"] > 0:
+        commit_optimization(stats)
+        logger.info("✅ Optimization complete and committed!")
+        logger.info("To restore from backup: python %s --restore %s", __file__, backup_tag)
+    else:
+        logger.info("No files needed optimization (all up to date)")
+
+
 def main():
     """Main entry point for the optimization tool."""
     parser = argparse.ArgumentParser(description="Optimize agent files in-place with git-based backup")
@@ -548,6 +590,11 @@ def main():
         "--force",
         action="store_true",
         help="Force regeneration of all optimized agents",
+    )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write the changes (creates a backup tag and commits). Default is a dry run",
     )
     parser.add_argument(
         "--stats",
@@ -611,36 +658,11 @@ def main():
         restore_agents(tag_name)
         return 0
 
-    # Run optimization
     logger.info("Agent directory: %s", agent_dir)
-    logger.info("Optimization mode: IN-PLACE (files will be modified directly)")
-
-    # Create backup tag before optimization
-    backup_tag = create_backup_tag()
-    logger.info("Backup tag created: %s", backup_tag)
-
-    # Create optimizer
-    optimizer = AgentOptimizer(
-        agent_dir=agent_dir,
-        strip_code_blocks=True,
-        strip_verbose_sections=args.strip_verbose,
-    )
-
-    # Run optimization
-    stats = optimizer.optimize_all(force=args.force)
-
-    # Print statistics if requested or if files were updated
-    if args.stats or stats["files_updated"] > 0:
-        optimizer.print_statistics()
-
-    # Commit changes if files were updated
-    if stats["files_updated"] > 0:
-        commit_optimization(stats)
-        logger.info("✅ Optimization complete and committed!")
-        logger.info("To restore from backup: python %s --restore %s", __file__, backup_tag)
-    else:
-        logger.info("No files needed optimization (all up to date)")
-
+    if not args.apply:
+        _run_dry(agent_dir, args)
+        return 0
+    _run_apply(agent_dir, args)
     return 0
 
 
