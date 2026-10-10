@@ -43,6 +43,7 @@ Average Reduction:      39.3%
 - Thread-safe operations
 
 **Safety Guarantees:**
+- Dry run by default: the Python tool writes only with `--apply` (the `agent-optimize.sh` wrapper passes it); writes are atomic and keep the file mode (#15580)
 - Original agent files NEVER modified
 - All changes go to separate `.claude/agents-optimized/` directory
 - Fully reversible (delete directory to revert)

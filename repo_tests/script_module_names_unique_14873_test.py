@@ -32,13 +32,8 @@ _EXEMPT_NAMES = frozenset({"__init__.py", "conftest.py"})
 #: Script suffixes whose basename is the name an operator types or a test imports.
 _SCRIPT_SUFFIXES = (".py", ".sh", ".bash", ".js")
 
-#: Known forks not yet resolved. May only shrink; each needs its own de-fork.
-_GRANDFATHERED = {
-    "sync-all-vms.sh": (
-        f"{_ROOT}/sync-all-vms.sh",
-        f"{_ROOT}/utilities/sync-all-vms.sh",
-    ),
-}
+#: Known forks not yet resolved. May only shrink; empty means every script name is unique.
+_GRANDFATHERED: dict[str, tuple[str, ...]] = {}
 
 
 def _script_files(root) -> list[str]:
@@ -52,7 +47,7 @@ REACH = declare(
     "script-module-name-scan",
     discover=_script_files,
     # Mid-window, from REACH.window().
-    floor=287,
+    floor=285,
     what="tracked scripts (py, sh, bash, js)",
     roots=(_ROOT,),
     growth=100,

@@ -304,23 +304,30 @@ Use the optimizer directly in Python code:
 from pathlib import Path
 from scripts.utilities.optimize_agents import AgentOptimizer
 
-# Create optimizer
+# Dry run by default (#15580): reports what would change, writes nothing,
+# and does not record files in the cache.
 optimizer = AgentOptimizer(
-    source_dir=Path('.claude/agents'),
-    target_dir=Path('.claude/agents-optimized'),
+    agent_dir=Path('.claude/agents'),
     strip_code_blocks=True,
-    strip_verbose_sections=False
+    strip_verbose_sections=False,
+    apply_changes=False,
 )
-
-# Optimize all agents
 stats = optimizer.optimize_all(force=False)
-print(f"Token savings: {stats['total_savings_percent']:.1f}%")
+print(f"Would rewrite {stats['files_would_update']} file(s)")
 
-# Optimize specific agent
-result = optimizer.optimize_agent_file(
-    Path('.claude/agents/senior-backend-engineer.md')
-)
+# apply_changes=True rewrites files in place, atomically, keeping the file mode.
+writer = AgentOptimizer(agent_dir=Path('.claude/agents'), apply_changes=True)
+stats = writer.optimize_all(force=False)
+print(f"Token savings: {stats['total_savings_percent']:.1f}%")
 ```
+
+### Dry run and `--apply`
+
+Run directly, `python scripts/utilities/optimize_agents.py` is a **dry run**: it reports
+what would change and writes nothing (no backup tag, no cache, no commit). Add `--apply`
+to write: it creates the backup tag, rewrites each file atomically (mode preserved) and
+commits. `scripts/utilities/agent-optimize.sh --optimize` passes `--apply` itself, so the
+wrapper keeps writing as before.
 
 ### Custom Optimization Rules
 
