@@ -33,7 +33,7 @@ Average Reduction:      39.3%
 
 ## Implementation Components
 
-### 1. Core Optimizer (`scripts/utilities/optimize_agents.py`)
+### 1. Core Optimizer (`scripts/optimize_agents.py`, the only optimizer module, #14873)
 
 **Features:**
 - Intelligent code block stripping with preservation markers
@@ -65,7 +65,7 @@ Average Reduction:      39.3%
 ./scripts/utilities/agent-optimize.sh --disable
 ```
 
-### 3. Comprehensive Testing (`tests/unit/test_agent_optimizer.py`)
+### 3. Comprehensive Testing (`autobot-infrastructure/shared/scripts/optimize_agents_test.py`)
 
 **Test Coverage:**
 - 16 unit tests covering all functionality
@@ -245,7 +245,7 @@ Add to GitHub Actions:
 ### Unit Test Summary
 
 ```bash
-python -m pytest tests/unit/test_agent_optimizer.py -v
+python -m pytest autobot-infrastructure/shared/scripts/optimize_agents_test.py -v
 ```
 
 **Results:**

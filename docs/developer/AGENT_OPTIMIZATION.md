@@ -298,50 +298,43 @@ rm .claude/agents-optimized/.optimization_cache.json
 
 ### Python API
 
-Use the optimizer directly in Python code:
+`autobot-infrastructure/shared/scripts/optimize_agents.py` is the only optimizer module
+(#14873; the former class-based `AgentOptimizer` was merged into it). Import it with
+`scripts/` on the path:
 
 ```python
 from pathlib import Path
-from scripts.utilities.optimize_agents import AgentOptimizer
+from optimize_agents import OptimizeOptions, load_cache, process_agent_files
 
-# Dry run by default (#15580): reports what would change, writes nothing,
-# and does not record files in the cache.
-optimizer = AgentOptimizer(
-    agent_dir=Path('.claude/agents'),
-    strip_code_blocks=True,
-    strip_verbose_sections=False,
-    apply_changes=False,
-)
-stats = optimizer.optimize_all(force=False)
-print(f"Would rewrite {stats['files_would_update']} file(s)")
+options = OptimizeOptions(collapse_policy=False, strip_code_blocks=True)
+files = sorted(Path('.claude/agents').glob('*.md'))
+
+# Dry run: reports what would change, writes nothing.
+summary = process_agent_files(files, apply_changes=False, options=options)
+print(f"Would rewrite {summary['modified']} file(s)")
 
 # apply_changes=True rewrites files in place, atomically, keeping the file mode.
-writer = AgentOptimizer(agent_dir=Path('.claude/agents'), apply_changes=True)
-stats = writer.optimize_all(force=False)
-print(f"Token savings: {stats['total_savings_percent']:.1f}%")
+summary = process_agent_files(files, apply_changes=True, options=options)
 ```
 
 ### Dry run and `--apply`
 
-Run directly, `python scripts/utilities/optimize_agents.py` is a **dry run**: it reports
-what would change and writes nothing (no backup tag, no cache, no commit). Add `--apply`
-to write: it creates the backup tag, rewrites each file atomically (mode preserved) and
-commits. `scripts/utilities/agent-optimize.sh --optimize` passes `--apply` itself, so the
-wrapper keeps writing as before.
+Run directly, `python autobot-infrastructure/shared/scripts/optimize_agents.py` is a **dry
+run**: it reports what would change and writes nothing. Add `--apply` to write, atomically
+with the file mode preserved. Flags (all opt-in; the default run only collapses the
+mandatory-policy section):
 
-### Custom Optimization Rules
+| Flag | Effect |
+|---|---|
+| `--strip-code-blocks` / `--strip-verbose` | Replace fenced blocks / `## Examples` sections with a placeholder; front matter is never touched |
+| `--no-collapse-policy` | Skip the policy-section collapse |
+| `--git-backup` (with `--apply`) | Tag before writing, commit after |
+| `--restore [TAG]`, `--list-backups` | Restore from, or list, the backup tags |
+| `--cache`, `--force` | Skip files unchanged since the last `--apply`; `--force` ignores the cache |
+| `--stats` | Byte-level report |
 
-Extend the optimizer for custom optimizations:
-
-```python
-from scripts.utilities.optimize_agents import AgentOptimizer
-
-class CustomAgentOptimizer(AgentOptimizer):
-    def _strip_custom_sections(self, content: str) -> str:
-        """Add custom stripping logic."""
-        # Your custom logic here
-        return content
-```
+`scripts/utilities/agent-optimize.sh` passes `--apply --git-backup --cache --strip-code-blocks
+--no-collapse-policy`, so the wrapper behaves as it did before the merge.
 
 ## Testing
 
@@ -349,10 +342,10 @@ class CustomAgentOptimizer(AgentOptimizer):
 
 ```bash
 # Run optimizer tests
-python -m pytest tests/unit/test_agent_optimizer.py -v
+python -m pytest autobot-infrastructure/shared/scripts/optimize_agents_test.py -v
 
 # Run with coverage
-python -m pytest tests/unit/test_agent_optimizer.py --cov=scripts.utilities.optimize_agents
+python -m pytest autobot-infrastructure/shared/scripts/optimize_agents_test.py --cov=optimize_agents
 ```
 
 ### Integration Testing

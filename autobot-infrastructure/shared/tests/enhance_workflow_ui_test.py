@@ -6,7 +6,7 @@
 ``WorkflowProgressWidget.vue`` under ``_COMPONENTS_REL`` and, before #14517
 fixed both write targets, could never reach them. Once it became reachable,
 it still wrote in place with no preview and no ``--dry-run`` -- the same
-"was inert, now writes" shape #14546 named for ``collapse_agent_policy.py``. The
+"was inert, now writes" shape #14546 named for ``optimize_agents.py``. The
 guard this suite exists for: :func:`main` with the default
 (``apply_changes=False``) must perform **zero writes** to either target.
 ``test_dry_run_matches_apply`` mutates that guarantee (forces a write even

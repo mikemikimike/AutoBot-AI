@@ -9,8 +9,9 @@ Scope is the whole `scripts/` tree, which includes the two roots #15580 names (`
 
 `shared/scripts` is a flat sys.path root: its tests load siblings by bare name, so two files
 called `optimize_agents.py` bound one `sys.modules` slot and the loser's tests ran against the
-other tool. They were two different tools (one collapses a policy section, one strips code
-blocks), so the fix was a rename, not a merge. This guard keeps the import name unique.
+other tool. They were the same concept (optimise `.claude/agents/*.md`), so #14873 merged the
+older class-based copy into the newer atomic/dry-run one. This guard keeps the import name
+unique, and pins the survivor's path so a second `optimize_agents` cannot return.
 """
 
 from __future__ import annotations
@@ -68,7 +69,8 @@ def shared_names(paths: list[str]) -> dict[str, tuple[str, ...]]:
     ("paths", "expected"),
     [
         (["a/optimize_agents.py", "a/utilities/optimize_agents.py"], {"optimize_agents.py"}),
-        (["a/collapse_agent_policy.py", "a/utilities/optimize_agents.py"], set()),
+        (["a/optimize_agents_test.py", "a/utilities/optimize_agents_test.py"], {"optimize_agents_test.py"}),
+        (["a/optimize_agents.py", "a/utilities/other_tool.py"], set()),
         (["a/sync.sh", "a/utilities/sync.sh"], {"sync.sh"}),
         (["a/__init__.py", "a/b/__init__.py", "a/conftest.py", "a/b/conftest.py"], set()),
     ],
@@ -86,3 +88,26 @@ def test_no_two_scripts_share_an_import_name() -> None:
     )
     stale = [n for n in _GRANDFATHERED if n not in found]
     assert not stale, f"{stale} are no longer forked: drop them from _GRANDFATHERED"
+
+
+_OPTIMIZE_AGENTS = f"{_ROOT}/optimize_agents.py"
+
+
+def test_the_matcher_finds_a_second_optimize_agents() -> None:
+    """Contrast pair: a module at another path is the fork; the survivor alone is not."""
+    assert _stray_optimize_agents([_OPTIMIZE_AGENTS, f"{_ROOT}/utilities/optimize_agents.py"]) == [
+        f"{_ROOT}/utilities/optimize_agents.py"
+    ]
+    assert _stray_optimize_agents([_OPTIMIZE_AGENTS, f"{_ROOT}/utilities/agent-optimize.sh"]) == []
+
+
+def _stray_optimize_agents(paths: list[str]) -> list[str]:
+    return [p for p in paths if PurePosixPath(p).stem == "optimize_agents" and p != _OPTIMIZE_AGENTS]
+
+
+def test_optimize_agents_is_one_module_at_the_surviving_path() -> None:
+    """#14873: the newer atomic/dry-run copy is the only `optimize_agents` (+ its one test)."""
+    paths = list(REACH.examined(repo_root()))
+    assert _OPTIMIZE_AGENTS in paths, f"#14873: the surviving module {_OPTIMIZE_AGENTS} is missing"
+    stray = _stray_optimize_agents(paths)
+    assert not stray, f"#14873: {stray} is a second optimize_agents module; extend {_OPTIMIZE_AGENTS} instead"
