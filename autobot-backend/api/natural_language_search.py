@@ -21,8 +21,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Tuple
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from api.embedding_refusal import reraise_http_or_refusal
 from api.schemas_knowledge import (
     NLCodeExplanationResponse,
     NLDomainsResponse,
@@ -34,13 +35,14 @@ from api.schemas_knowledge import (
     SearchResultWithExplanation,
 )
 from api.system_health import ComponentHealth, register_health_probe
+from auth_middleware import get_current_user
 from autobot_shared.error_boundaries import ErrorCategory, with_error_handling
 from autobot_shared.logging_manager import get_logger
+from autobot_shared.slug import sanitize_token
 
 logger = get_logger(__name__)
 
 # Issue #380: Pre-compiled regex patterns for query parsing and code analysis
-_NON_WORD_CHARS_RE = re.compile(r"[^\w\s\-_]")
 _CAMEL_CASE_RE = re.compile(r"\b(?:[A-Z][a-z]{1,30}){2,10}\b")
 _SNAKE_CASE_RE = re.compile(r"\b[a-z]+(?:_[a-z]+)+\b")
 _QUOTED_STRING_RE = re.compile(r'"([^"]+)"|\'([^\']+)\'')
@@ -48,11 +50,8 @@ _FUNC_DEF_RE = re.compile(r"def\s+(\w+)")
 _CLASS_DEF_RE = re.compile(r"class\s+(\w+)")
 _ASYNC_FUNC_RE = re.compile(r"async\s+def\s+(\w+)")
 
-# Issue #336: Keyword heuristics dispatch table for intent classification
-KEYWORD_INTENT_FALLBACKS: Dict[Tuple[str, ...], "QueryIntent"] = {}  # Populated after enum defined
-
 # Issue #3355: prefix moved to router registry (feature_routers.py)
-router = APIRouter(tags=["natural-language-search", "code-search"])
+router = APIRouter(tags=["natural-language-search", "code-search"], dependencies=[Depends(get_current_user)])
 
 
 # =============================================================================
@@ -338,7 +337,7 @@ QUESTION_TYPES = {
 
 # Issue #336: Keyword heuristics dispatch table for intent classification fallback
 # Maps (keyword1, keyword2, ...) tuples to QueryIntent
-KEYWORD_INTENT_FALLBACKS = {
+KEYWORD_INTENT_FALLBACKS: Dict[Tuple[str, ...], QueryIntent] = {
     ("define", "declaration"): QueryIntent.FIND_DEFINITION,
     ("use", "call"): QueryIntent.FIND_USAGE,
     ("implement", "work"): QueryIntent.FIND_IMPLEMENTATION,
@@ -529,7 +528,7 @@ class NaturalLanguageQueryParser:
         # Remove extra whitespace
         query = " ".join(query.split())
         # Remove punctuation except hyphens and underscores
-        query = _NON_WORD_CHARS_RE.sub(" ", query)
+        query = sanitize_token(query, allowed=r"\w\s\-_", replacement=" ", collapse=False)
         return query.strip()
 
     def _classify_intent(self, query: str) -> Tuple[QueryIntent, float]:
@@ -1028,9 +1027,7 @@ def _convert_suggestions_to_dicts(suggestions: list) -> list:
     error_code_prefix="NATURAL_LANGUAGE_SEARCH",
 )
 async def natural_language_search(request: NLSearchRequest):
-    """
-    Search codebase using natural language queries.
-
+    """Search codebase using natural language queries.
     Issue #665: Refactored to use extracted helper functions.
 
     Examples:
@@ -1077,6 +1074,7 @@ async def natural_language_search(request: NLSearchRequest):
         )
 
     except Exception as e:
+        reraise_http_or_refusal(e)  # a refused query space is a 503 with its reason (#18185)
         logger.error("Natural language search error: %s", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 

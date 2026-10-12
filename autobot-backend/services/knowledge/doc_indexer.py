@@ -31,6 +31,7 @@ from autobot_shared.doc_chunking import process_h2_sections as _process_h2_secti
 from autobot_shared.frontmatter import split_frontmatter
 from autobot_shared.logging_manager import get_logger
 from autobot_shared.paths import shared_cache_path
+from autobot_shared.slug import sanitize_token
 
 if TYPE_CHECKING:
     from services.knowledge.sync_queue import SyncQueueEntry, SyncReason  # noqa: F401
@@ -212,8 +213,7 @@ def _extract_tags(content: str, file_path: str) -> List[str]:
             "opt",
             "autobot",
         ]:
-            tag = re.sub(r"[^a-zA-Z0-9-_]", "", part.lower())
-            if tag and len(tag) > 2:
+            if len(tag := sanitize_token(part, allowed="a-zA-Z0-9_-", replacement="", case="lower")) > 2:
                 tags.add(tag)
 
     keywords = [
@@ -563,7 +563,7 @@ class DocIndexerService:
             )
 
             effective = await get_org_knowledge_config_service().get_effective(self._org_id)
-            embed_model_name = effective.embedding_model or "nomic-embed-text"
+            embed_model_name = effective.embedding_model  # org override, else ssot; empty fails init (#18143)
             self.embedding_model_name = embed_model_name
 
             # Embed model is created first so the collection guard can probe the

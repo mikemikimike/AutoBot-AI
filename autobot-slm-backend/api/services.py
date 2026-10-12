@@ -12,24 +12,25 @@ Related to Issue #728.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Tuple
+from typing import Tuple
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing_extensions import Annotated
 
+from api.orchestration import FleetServicesResponse, ServiceCategoryUpdate
+from api.orchestration import get_fleet_services as orchestration_fleet_services
+from api.orchestration import update_fleet_service_category
+from api.service_action_guard import FLEET_SERVICE_ACTION_ROUTE, NODE_SERVICE_ACTION_ROUTE, SERVICE_LOGS_ROUTE
 from api.service_ports import SERVICE_PORT_MAP
 from api.websocket import ws_manager
 from autobot_shared.ssot_config import config
 from models.database import Node, Service, ServiceConflict, SystemdState
 from models.schemas import (
-    FleetServicesResponse,
-    FleetServiceStatus,
     RestartAllServicesRequest,
     RestartAllServicesResponse,
     ServiceActionResponse,
-    ServiceCategoryUpdate,
     ServiceConflictCreateRequest,
     ServiceConflictListResponse,
     ServiceConflictResponse,
@@ -370,10 +371,7 @@ async def _upsert_service(
         return True, False
 
 
-@router.post(
-    "/{node_id}/services/{service_name}/start",
-    response_model=ServiceActionResponse,
-)
+@router.post("/{node_id}/services/{service_name}/start", **NODE_SERVICE_ACTION_ROUTE)
 async def start_service(
     node_id: str,
     service_name: str,
@@ -430,10 +428,7 @@ async def start_service(
     )
 
 
-@router.post(
-    "/{node_id}/services/{service_name}/stop",
-    response_model=ServiceActionResponse,
-)
+@router.post("/{node_id}/services/{service_name}/stop", **NODE_SERVICE_ACTION_ROUTE)
 async def stop_service(
     node_id: str,
     service_name: str,
@@ -547,10 +542,7 @@ async def _notify_restart_result(node_id: str, service_name: str, success: bool,
     )
 
 
-@router.post(
-    "/{node_id}/services/{service_name}/restart",
-    response_model=ServiceActionResponse,
-)
+@router.post("/{node_id}/services/{service_name}/restart", **NODE_SERVICE_ACTION_ROUTE)
 async def restart_service(
     node_id: str,
     service_name: str,
@@ -586,10 +578,7 @@ async def restart_service(
     )
 
 
-@router.get(
-    "/{node_id}/services/{service_name}/logs",
-    response_model=ServiceLogsResponse,
-)
+@router.get("/{node_id}/services/{service_name}/logs", **SERVICE_LOGS_ROUTE)
 async def get_service_logs(
     node_id: str,
     service_name: str,
@@ -908,64 +897,12 @@ async def get_fleet_services(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[dict, Depends(get_current_user)],
 ) -> FleetServicesResponse:
-    """Get aggregated service status across all nodes.
+    """Deprecated alias of ``GET /orchestration/fleet/services`` (#17856).
 
-    This is the canonical endpoint for fleet-wide service status.
-    Consolidated from Issue #850 orchestration unification.
+    One implementation lives in ``api.orchestration``; this route only delegates so the SLM
+    frontend keeps working until it calls the public path, after which this returns 410.
     """
-    # Get all services grouped by name
-    query = select(Service).order_by(Service.service_name)
-    result = await db.execute(query)
-    all_services = result.scalars().all()
-
-    # Get node info for hostname lookup
-    nodes_result = await db.execute(select(Node))
-    nodes = {n.node_id: n for n in nodes_result.scalars().all()}
-
-    # Aggregate by service name
-    # Store both node_statuses and category (take first one found)
-    service_map: Dict[str, dict] = {}
-    for svc in all_services:
-        if svc.service_name not in service_map:
-            service_map[svc.service_name] = {
-                "nodes": [],
-                "category": getattr(svc, "category", "system") or "system",
-            }
-        node = nodes.get(svc.node_id)
-        service_map[svc.service_name]["nodes"].append(
-            {
-                "node_id": svc.node_id,
-                "hostname": node.hostname if node else "unknown",
-                "status": svc.status,
-                "ip_address": node.ip_address if node else None,
-                "port": svc.port,
-            }
-        )
-
-    # Build response
-    fleet_services = []
-    for service_name, data in service_map.items():
-        node_statuses = data["nodes"]
-        running = sum(1 for n in node_statuses if n["status"] == "running")
-        stopped = sum(1 for n in node_statuses if n["status"] == "stopped")
-        failed = sum(1 for n in node_statuses if n["status"] == "failed")
-
-        fleet_services.append(
-            FleetServiceStatus(
-                service_name=service_name,
-                category=data["category"],
-                nodes=node_statuses,
-                running_count=running,
-                stopped_count=stopped,
-                failed_count=failed,
-                total_nodes=len(node_statuses),
-            )
-        )
-
-    return FleetServicesResponse(
-        services=fleet_services,
-        total_services=len(fleet_services),
-    )
+    return await orchestration_fleet_services(db, _)
 
 
 @fleet_router.patch("/services/{service_name}/category")
@@ -975,43 +912,8 @@ async def update_service_category(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[dict, Depends(get_current_user)],
 ) -> dict:
-    """
-    Update the category for a service across all nodes.
-
-    This is an admin override - manually categorize a service as
-    'autobot' or 'system' across all nodes that have it.
-
-    Canonical endpoint for fleet-wide category updates (Issue #850).
-    """
-    # Find all service records with this name
-    query = select(Service).where(Service.service_name == service_name)
-    result = await db.execute(query)
-    services = result.scalars().all()
-
-    if not services:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Service {service_name} not found on any node",
-        )
-
-    # Update category on all records
-    for svc in services:
-        svc.category = update.category
-
-    await db.commit()
-
-    logger.info(
-        "Service %s category updated to %s across %d nodes",
-        service_name,
-        update.category,
-        len(services),
-    )
-
-    return {
-        "service_name": service_name,
-        "category": update.category,
-        "nodes_updated": len(services),
-    }
+    """Deprecated alias of ``PATCH /orchestration/fleet/services/{name}/category`` (#17856)."""
+    return await update_fleet_service_category(service_name, update, db, _)
 
 
 async def _get_fleet_nodes_or_raise(
@@ -1033,10 +935,7 @@ async def _get_fleet_nodes_or_raise(
     return services, nodes
 
 
-@fleet_router.post(
-    "/services/{service_name}/start",
-    response_model=ServiceActionResponse,
-)
+@fleet_router.post("/services/{service_name}/start", **FLEET_SERVICE_ACTION_ROUTE)
 async def start_fleet_service(
     service_name: str,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1092,10 +991,7 @@ async def start_fleet_service(
     )
 
 
-@fleet_router.post(
-    "/services/{service_name}/stop",
-    response_model=ServiceActionResponse,
-)
+@fleet_router.post("/services/{service_name}/stop", **FLEET_SERVICE_ACTION_ROUTE)
 async def stop_fleet_service(
     service_name: str,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1150,10 +1046,7 @@ async def stop_fleet_service(
     )
 
 
-@fleet_router.post(
-    "/services/{service_name}/restart",
-    response_model=ServiceActionResponse,
-)
+@fleet_router.post("/services/{service_name}/restart", **FLEET_SERVICE_ACTION_ROUTE)
 async def restart_fleet_service(
     service_name: str,
     db: Annotated[AsyncSession, Depends(get_db)],

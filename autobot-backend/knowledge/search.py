@@ -12,7 +12,7 @@ See: src/knowledge/search_components/
 - helpers.py: Redis hash operations and result building
 - query_processor.py: Query preprocessing and expansion
 - keyword_search.py: Keyword-based search using Redis
-- hybrid_search.py: Hybrid search with RRF
+- hybrid_search.py: Hybrid search with RRF (the one KB hybrid search, #17599)
 - reranking.py: Cross-encoder result reranking
 - tag_filter.py: Tag-based result filtering
 - analytics.py: Search analytics tracking
@@ -323,13 +323,13 @@ class SearchMixin(BasicVectorSearchMixin):
         Issue #281: Extracted helper.
         Issue #165: Uses NPU worker for hardware-accelerated embedding generation.
         """
-        from autobot_shared.ssot_config import config
+        from autobot_shared.embedding_model import active_embedding_model
         from knowledge.embedding_cache import get_embedding_cache
         from knowledge.facts import _generate_embedding_with_npu_fallback
 
-        # Issue #12251: cache key is (model, text). The NPU-fallback helper
-        # embeds with the configured default model, so key on that name.
-        model = config.llm.embedding_model
+        # Issue #12251/#18143: cache key is (model, text); the generator resolves
+        # the same model through the same resolver, so key and vector agree.
+        model = active_embedding_model()
         _embedding_cache = get_embedding_cache()
         query_embedding = await _embedding_cache.get(query, model=model)
 
