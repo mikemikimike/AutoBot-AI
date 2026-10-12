@@ -73,6 +73,33 @@ REASON_CODES = frozenset(
 #: `reach_declarations_test` fails on a new one that does not -- so the pattern cannot be
 #: re-added without someone writing down why (#17914 AC4).
 ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
+    "migration-gate-test-import-sweep": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "One test directory's Python, against all tracked Python; the rest of the suite grows at its own rate.",
+    ),
+    "paths-filter-workflow-sweep": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Workflow files are a subset of tracked YAML; compose, ansible and filter files grow at "
+        "their own rate, so a share of all YAML would sink with nothing wrong.",
+    ),
+    "deployment-mode-detector-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Python files under two of the tracked trees, a subset of all tracked Python; the other trees drift.",
+    ),
+    "egress-default-outbound-call-sites": (
+        ABSOLUTE,
+        "NOT_PATHS",
+        "Call sites, not paths: one id per detected or declared outbound call in the egress sweep.",
+    ),
+    "egress-default-outbound-call-sweep": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Files making outbound HTTP calls are a small subset of tracked python; the other ~6000 "
+        "files grow independently, so a share of them sinks with nothing wrong with the sweep.",
+    ),
     "ansible-apt-repo-budget-override-sweep": (
         ABSOLUTE,
         "SUBSET_DRIFTS",
@@ -125,6 +152,18 @@ ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
         "`archives/` case named in this module's own header. Archived pages are added without "
         "front matter and never removed, so the processed share sinks with nothing wrong, and a "
         "fraction of the whole would fire on that drift rather than on a guard going blind.",
+    ),
+    "chat-history-async-calls-awaited": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test modules under `autobot-backend/api`, the same population and the same test "
+        "drift as `chat-single-delete-implementation` (#18316).",
+    ),
+    "chat-single-delete-implementation": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test modules under `autobot-backend/api`; the api package's tests grow at their own "
+        "rate, so a share of all its `.py` files would drift with nothing wrong (#18316).",
     ),
     "chromadb-compose-port-sites": (ABSOLUTE, "NOT_PATHS", "Parsed `ports:` entries, not files."),
     "chromadb-compose-services": (ABSOLUTE, "NOT_PATHS", "Parsed compose services, not files."),
@@ -187,15 +226,105 @@ ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
         "SUBSET_DRIFTS",
         "One frontend tree's source, against all tracked `.vue`/`.ts`/`.js` including the other frontend.",
     ),
+    "credential-field-name-only-callers": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Tracked .py under thirteen declared trees; Python elsewhere (hidden dirs, root files) drifts alone.",
+    ),
+    "anti-pattern-type-emitters": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under two detector packages; the test-file share drifts.",
+    ),
+    "one-content-digest-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under two roots; the test-file share drifts.",
+    ),
     "post-commit-seed-scan": (
         ABSOLUTE,
         "SUBSET_DRIFTS",
         "Non-test source is a subset of tracked .py under three roots; the test-file share drifts.",
     ),
+    "knowledge-metadata-parse-canonical": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test knowledge_*.py route modules are a subset of tracked api files; the test-file share drifts.",
+    ),
     "fact-read-authorization-scan": (
         ABSOLUTE,
         "SUBSET_DRIFTS",
         "Non-test source is a subset of tracked .py under three roots; the test-file share drifts.",
+    ),
+    "ansible-concept-forks-17856-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Yaml, template and shell files are a subset of everything tracked under the ansible tree.",
+    ),
+    "concept-forks-17856-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under three roots; the test-file share drifts.",
+    ),
+    "session-ownership-validator-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under three roots; the test-file share drifts.",
+    ),
+    "oauth-bundle-app-secret-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under two roots; the test-file share drifts.",
+    ),
+    "model-tier-map-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under three roots; the test-file share drifts.",
+    ),
+    "embedding-model-render-sites": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Tracked ansible yml/yaml files, of which only those naming a template that carries the variable are parsed.",
+    ),
+    "frontend-model-literal-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Frontend ts and vue source, excluding tests and generated types, against all tracked frontend files.",
+    ),
+    "tool-effect-table-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source under three roots, a subset of all tracked Python; the test-file share drifts.",
+    ),
+    "embedding-model-literal-sites": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Production python under two roots, a subset of all tracked Python; the test-file share drifts.",
+    ),
+    "chunker-private-hook-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Tracked .py under three roots, a subset of all tracked Python; the test-file share drifts.",
+    ),
+    "one-bm25-formula": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under three roots; the test-file share drifts.",
+    ),
+    "one-hybrid-search": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under two roots; the test-file share drifts.",
+    ),
+    "semantic-chunker-fork-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under two roots; the test-file share drifts.",
+    ),
+    "ssh-restart-executor-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Non-test source is a subset of tracked .py under one root; the test-file share drifts.",
     ),
     "import-hermeticity": (
         ABSOLUTE,
@@ -205,7 +334,13 @@ ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
     "important-declaration-sweep": (
         ABSOLUTE,
         "SUBSET_DRIFTS",
-        "One frontend's components, against all tracked `.vue`.",
+        "Both frontends' components (shared with the raw-palette-class ratchet), against all tracked `.vue`, "
+        "which also includes the shared kit's.",
+    ),
+    "infra-backend-import-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Python under the infrastructure tree, against all tracked Python; the backend grows independently.",
     ),
     "kb-admin-read-bypass": (
         ABSOLUTE,
@@ -249,6 +384,13 @@ ALLOWANCE_VERDICTS: dict[str, tuple[str, str, str]] = {
     "response-model-secret-scan": (ABSOLUTE, "SUBSET_DRIFTS", "Backend Python modules, against all tracked Python."),
     "router-auth-coverage": (ABSOLUTE, "NOT_PATHS", "Routers registered in `core_routers.py`, not files."),
     "slm-frontend-components": (ABSOLUTE, "SUBSET_DRIFTS", "One frontend's components, against all tracked `.vue`."),
+    "severity-enum-fork-scan": (
+        ABSOLUTE,
+        "SUBSET_DRIFTS",
+        "Tracked Python under three roots against all tracked Python: the other roots (frontend "
+        "tooling, SLM, tests, docs scripts) grow independently, so a share of the whole sinks "
+        "with nothing wrong. The guard needs the roots reached, not a share of the repository.",
+    ),
     "slm-frontend-locale-keys": (
         ABSOLUTE,
         "NOT_PATHS",
