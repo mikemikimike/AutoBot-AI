@@ -54,7 +54,7 @@ KNOWN_LARGE: dict[str, int] = {
     "autobot-backend/api/analytics_architecture.py": 1264,
     "autobot-backend/api/analytics_bug_prediction.py": 1438,
     "autobot-backend/api/analytics_cfg.py": 1331,
-    "autobot-backend/api/analytics_code_generation.py": 1006,
+    "autobot-backend/api/analytics_code_generation.py": 992,
     "autobot-backend/api/analytics_code_review.py": 927,
     "autobot-backend/api/analytics_continuous_learning.py": 1170,
     "autobot-backend/api/analytics_conversation.py": 988,
@@ -64,7 +64,7 @@ KNOWN_LARGE: dict[str, int] = {
     "autobot-backend/api/analytics_embedding_patterns.py": 603,
     "autobot-backend/api/analytics_evolution.py": 1202,
     "autobot-backend/api/analytics_export.py": 656,
-    "autobot-backend/api/analytics_llm_patterns.py": 946,
+    "autobot-backend/api/analytics_llm_patterns.py": 934,
     "autobot-backend/api/analytics_log_patterns.py": 1039,
     "autobot-backend/api/analytics_pattern_learning.py": 956,
     "autobot-backend/api/analytics_performance.py": 791,
@@ -76,7 +76,7 @@ KNOWN_LARGE: dict[str, int] = {
     "autobot-backend/api/batch_jobs.py": 964,
     "autobot-backend/api/browser_mcp.py": 1323,
     "autobot-backend/api/cache_management.py": 779,
-    "autobot-backend/api/chat.py": 2712,  # #18316: delete delegates to the canonical path
+    "autobot-backend/api/chat.py": 2708,  # #18316: delete delegates to the canonical path
     "autobot-backend/api/chat_sessions.py": 1938,  # #18293: legacy transcripts only ever proposed
     "autobot-backend/api/code_intelligence.py": 2154,
     "autobot-backend/api/code_search.py": 828,
@@ -127,7 +127,7 @@ KNOWN_LARGE: dict[str, int] = {
     "autobot-backend/api/provider_auth.py": 608,
     "autobot-backend/api/redis_mcp/tools.py": 658,
     "autobot-backend/api/schemas_agent.py": 2224,
-    "autobot-backend/api/schemas_analytics.py": 3543,
+    "autobot-backend/api/schemas_analytics.py": 3533,
     "autobot-backend/api/schemas_chat.py": 702,
     "autobot-backend/api/schemas_code.py": 3265,
     "autobot-backend/api/schemas_knowledge.py": 5155,
@@ -144,7 +144,7 @@ KNOWN_LARGE: dict[str, int] = {
     "autobot-backend/api/vnc_mcp.py": 763,
     "autobot-backend/api/websockets.py": 1120,  # #16457: accepts routed through websocket_subprotocol.accept_websocket
     "autobot-backend/api/workflow.py": 1027,
-    "autobot-backend/auth_middleware.py": 1088,  # #16457: bearer parsing moved to websocket_subprotocol.py
+    "autobot-backend/auth_middleware.py": 1076,  # #16457: bearer parsing moved to websocket_subprotocol.py
     "autobot-backend/autobot_memory_graph/property_graph.py": 630,
     "autobot-backend/autobot_memory_graph/relations.py": 641,
     "autobot-backend/autobot_memory_graph/semantic_search.py": 706,
